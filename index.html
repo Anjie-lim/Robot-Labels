@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESI Caption Quality Inspector</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6; /* Tailwind gray-100 */
+            overflow-x: hidden;
+        }
+
+        .game-container {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+
+        .screen {
+            display: none;
+            animation: fadeIn 0.3s ease-out forwards;
+        }
+
+        .screen.active {
+            display: flex;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            50% { transform: translateX(5px); }
+            75% { transform: translateX(-5px); }
+        }
+
+        .shake {
+            animation: shake 0.4s ease-in-out;
+        }
+
+        /* Timer Bar */
+        .timer-track {
+            width: 100%;
+            height: 8px;
+            background-color: #e5e7eb;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 1rem;
+        }
+
+        .timer-fill {
+            height: 100%;
+            background-color: #8b5cf6; /* Purple for ESI theme */
+            width: 100%;
+            transition: width 0.1s linear, background-color 0.3s;
+        }
+        
+        .timer-fill.warning {
+            background-color: #ef4444; /* Red when time is low */
+        }
+
+        .feedback-toast {
+            position: absolute;
+            top: -40px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 0.5rem 1rem;
+            border-radius: 9999px;
+            font-weight: bold;
+            color: white;
+            opacity: 0;
+            transition: opacity 0.3s, top 0.3s;
+            pointer-events: none;
+        }
+
+        .feedback-toast.show {
+            opacity: 1;
+            top: -60px;
+        }
+
+        .bg-esi-purple { background-color: #6d28d9; }
+        .text-esi-purple { color: #6d28d9; }
+        .border-esi-purple { border-color: #6d28d9; }
+    </style>
+</head>
+<body>
+
+    <div class="game-container">
+        <div class="relative bg-white rounded-2xl shadow-xl w-full max-w-md p-6 sm:p-8 flex flex-col relative">
+            
+            <!-- Global Header (Score) -->
+            <div id="header" class="hidden flex justify-between items-center mb-6 pb-4 border-b-2 border-gray-100">
+                <div class="font-bold text-gray-500 uppercase text-sm tracking-wider" id="round-indicator">Round 1</div>
+                <div class="font-black text-2xl text-esi-purple">Score: <span id="score">0</span></div>
+            </div>
+
+            <!-- Start Screen -->
+            <div id="screen-start" class="screen active flex-col text-center">
+                <div class="w-20 h-20 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg class="w-10 h-10 text-esi-purple" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg>
+                </div>
+                <h1 class="text-3xl font-extrabold text-gray-900 mb-2">Caption Quality Inspector</h1>
+                <p class="text-gray-600 mb-8">Test your skills in ESI Caption Labeling. Can you spot the errors and label actions correctly before time runs out?</p>
+                <button onclick="startGame()" class="bg-esi-purple hover:bg-purple-800 text-white font-bold py-3 px-6 rounded-xl transition transform hover:scale-105 active:scale-95 shadow-lg w-full">
+                    Start Assessment
+                </button>
+            </div>
+
+            <!-- Round 1 Intro -->
+            <div id="screen-r1-intro" class="screen flex-col">
+                <h2 class="text-2xl font-bold text-gray-800 mb-4 border-b-4 border-purple-200 inline-block pb-1">Round 1: The Sorter</h2>
+                <p class="text-gray-600 mb-4 font-semibold">Rule check:</p>
+                <ul class="text-sm text-gray-600 space-y-2 mb-8 list-disc pl-5">
+                    <li><span class="font-bold text-gray-800">Action:</span> Hand-object interactions. Includes reaching for a pick and retracting after a place.</li>
+                    <li><span class="font-bold text-gray-800">Idle:</span> Waiting, pausing, or no productive movement.</li>
+                </ul>
+                <p class="text-sm text-purple-600 font-bold mb-6 text-center animate-pulse">You have 5 seconds per scenario!</p>
+                <button onclick="startRound1()" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-xl transition transform hover:scale-105 active:scale-95 shadow-lg w-full">
+                    Begin Round 1
+                </button>
+            </div>
+
+            <!-- Round 1 Play -->
+            <div id="screen-r1-play" class="screen flex-col h-full relative">
+                <div id="r1-toast" class="feedback-toast bg-green-500">+100</div>
+                <div class="timer-track"><div id="r1-timer" class="timer-fill"></div></div>
+                <div class="text-sm text-gray-500 mb-2 font-semibold">Scenario <span id="r1-progress">1/5</span></div>
+                
+                <div class="bg-gray-50 rounded-xl p-6 border-2 border-gray-200 mb-8 min-h-[120px] flex items-center justify-center text-center">
+                    <p id="r1-scenario-text" class="text-lg font-semibold text-gray-800 leading-snug"></p>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4 mt-auto">
+                    <button onclick="submitR1('action')" class="border-2 border-blue-500 text-blue-600 hover:bg-blue-50 font-bold py-4 rounded-xl transition transform active:scale-95 text-lg flex flex-col items-center">
+                        <span class="text-2xl mb-1">⚡</span> ACTION
+                    </button>
+                    <button onclick="submitR1('idle')" class="border-2 border-gray-400 text-gray-600 hover:bg-gray-100 font-bold py-4 rounded-xl transition transform active:scale-95 text-lg flex flex-col items-center">
+                        <span class="text-2xl mb-1">⏸️</span> IDLE
+                    </button>
+                </div>
+            </div>
+
+            <!-- Round 2 Intro -->
+            <div id="screen-r2-intro" class="screen flex-col">
+                <h2 class="text-2xl font-bold text-gray-800 mb-4 border-b-4 border-purple-200 inline-block pb-1">Round 2: The Editor</h2>
+                <p class="text-gray-600 mb-4 font-semibold">Formatting Rules:</p>
+                <ul class="text-sm text-gray-600 space-y-2 mb-8 list-disc pl-5">
+                    <li>All lowercase.</li>
+                    <li>No ending periods.</li>
+                    <li>Always say <span class="font-bold text-green-600">"hand"</span>, never <span class="font-bold text-red-500 line-through">"gripper"</span>.</li>
+                </ul>
+                <p class="text-sm text-purple-600 font-bold mb-6 text-center animate-pulse">You have 15 seconds to fix each caption!</p>
+                <button onclick="startRound2()" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-xl transition transform hover:scale-105 active:scale-95 shadow-lg w-full">
+                    Begin Round 2
+                </button>
+            </div>
+
+            <!-- Round 2 Play -->
+            <div id="screen-r2-play" class="screen flex-col h-full relative">
+                <div id="r2-toast" class="feedback-toast bg-green-500">+150</div>
+                <div class="timer-track"><div id="r2-timer" class="timer-fill"></div></div>
+                <div class="text-sm text-gray-500 mb-2 font-semibold">Caption <span id="r2-progress">1/4</span></div>
+                
+                <div class="mb-4">
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">AI Generated (Flawed):</label>
+                    <div id="r2-flawed-text" class="bg-red-50 text-red-800 border-l-4 border-red-500 p-3 rounded-r italic font-medium"></div>
+                </div>
+
+                <div class="mb-6 flex-grow">
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Your Correction:</label>
+                    <textarea id="r2-input" class="w-full bg-white border-2 border-gray-300 rounded-xl p-3 focus:outline-none focus:border-esi-purple focus:ring-1 focus:ring-esi-purple resize-none h-24 font-mono text-sm" placeholder="Type the corrected caption here..."></textarea>
+                    <div id="r2-error-msg" class="text-red-500 text-xs font-bold mt-2 hidden">Error message here</div>
+                </div>
+
+                <button onclick="submitR2()" class="bg-esi-purple hover:bg-purple-800 text-white font-bold py-4 rounded-xl transition transform active:scale-95 w-full text-lg mt-auto shadow-md">
+                    Submit Correction
+                </button>
+            </div>
+
+            <!-- Game Over Screen -->
+            <div id="screen-game-over" class="screen flex-col text-center items-center">
+                <div id="final-icon" class="w-24 h-24 rounded-full flex items-center justify-center mb-4 text-5xl">
+                    🏆
+                </div>
+                <h1 id="final-title" class="text-3xl font-extrabold text-gray-900 mb-2">Assessment Complete!</h1>
+                <p class="text-gray-600 mb-6 font-medium">Your Final Score</p>
+                
+                <div class="text-5xl font-black text-esi-purple mb-8 drop-shadow-md" id="final-score">0</div>
+                
+                <div id="final-feedback" class="text-sm text-gray-600 mb-8 max-w-xs mx-auto bg-gray-50 p-4 rounded-lg border border-gray-200">
+                    Feedback text goes here.
+                </div>
+
+                <button onclick="resetGame()" class="bg-gray-800 hover:bg-gray-900 text-white font-bold py-3 px-8 rounded-xl transition transform hover:scale-105 active:scale-95 shadow-lg w-full">
+                    Play Again
+                </button>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // Game State
+        let score = 0;
+        let currentQuestion = 0;
+        let timerInterval;
+        let timeLeft = 0;
+        const R1_TIME = 5000; // 5 seconds per question
+        const R2_TIME = 15000; // 15 seconds per question
+        let startTime = 0;
+
+        // Data for Round 1 (Action vs Idle)
+        const round1Data = [
+            { text: "Hand is hovering stationary above the table for 2 seconds", answer: "idle" },
+            { text: "Hand is reaching out towards the blue wooden block", answer: "action" },
+            { text: "System is paused, waiting for the next camera frame", answer: "idle" },
+            { text: "Moving the grasped coffee cup towards the sink", answer: "action" },
+            { text: "Retracting the empty hand after placing the plate down", answer: "action" }
+        ];
+
+        // Data for Round 2 (Syntax Editing)
+        const round2Data = [
+            { 
+                original: "Pick up the red mug with the right gripper.", 
+                target: "pick up the red mug with the right hand",
+                hints: ["lowercase only", "no period", "use 'hand' not 'gripper'"]
+            },
+            { 
+                original: "pour water into the cup.", 
+                target: "pour water into the cup",
+                hints: ["lowercase only", "no period"]
+            },
+            { 
+                original: "Place the Apple on the table", 
+                target: "place the apple on the table",
+                hints: ["lowercase only"]
+            },
+            { 
+                original: "open the drawer with the left gripper", 
+                target: "open the drawer with the left hand",
+                hints: ["use 'hand' not 'gripper'"]
+            }
+        ];
+
+        // Utility: Screen Management
+        function showScreen(screenId) {
+            document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
+            document.getElementById(screenId).classList.add('active');
+        }
+
+        function updateHeader(roundName) {
+            document.getElementById('header').classList.remove('hidden');
+            document.getElementById('header').classList.add('flex');
+            document.getElementById('round-indicator').innerText = roundName;
+            document.getElementById('score').innerText = score;
+        }
+
+        function addScore(points) {
+            score += points;
+            const scoreEl = document.getElementById('score');
+            scoreEl.innerText = score;
+            scoreEl.classList.add('scale-125', 'text-green-500');
+            setTimeout(() => {
+                scoreEl.classList.remove('scale-125', 'text-green-500');
+            }, 300);
+        }
+
+        // --- Round 1 Logic ---
+        function startGame() {
+            showScreen('screen-r1-intro');
+        }
+
+        function startRound1() {
+            currentQuestion = 0;
+            updateHeader('Round 1: Sorter');
+            showScreen('screen-r1-play');
+            loadR1Question();
+        }
+
+        function loadR1Question() {
+            if (currentQuestion >= round1Data.length) {
+                endRound1();
+                return;
+            }
+            const q = round1Data[currentQuestion];
+            document.getElementById('r1-scenario-text').innerText = `"${q.text}"`;
+            document.getElementById('r1-progress').innerText = `${currentQuestion + 1}/${round1Data.length}`;
+            startTimer(R1_TIME, document.getElementById('r1-timer'), () => submitR1('timeout'));
+        }
+
+        function submitR1(guess) {
+            clearInterval(timerInterval);
+            const q = round1Data[currentQuestion];
+            const isCorrect = (guess === q.answer);
+            
+            showToast('r1-toast', isCorrect ? '+100' : 'Miss!', isCorrect);
+            
+            if (isCorrect) {
+                const timeBonus = Math.floor((timeLeft / R1_TIME) * 50); // Up to 50 bonus points for speed
+                addScore(100 + timeBonus);
+            } else {
+                document.getElementById('screen-r1-play').classList.add('shake');
+                setTimeout(() => document.getElementById('screen-r1-play').classList.remove('shake'), 400);
+            }
+
+            currentQuestion++;
+            setTimeout(loadR1Question, 600); // Brief pause before next
+        }
+
+        function endRound1() {
+            showScreen('screen-r2-intro');
+            document.getElementById('header').classList.add('hidden'); // Hide temporarily
+        }
+
+        // --- Round 2 Logic ---
+        function startRound2() {
+            currentQuestion = 0;
+            updateHeader('Round 2: Editor');
+            showScreen('screen-r2-play');
+            loadR2Question();
+        }
+
+        function loadR2Question() {
+            if (currentQuestion >= round2Data.length) {
+                endGame();
+                return;
+            }
+            const q = round2Data[currentQuestion];
+            document.getElementById('r2-flawed-text').innerText = `"${q.original}"`;
+            const input = document.getElementById('r2-input');
+            input.value = '';
+            input.focus();
+            document.getElementById('r2-error-msg').classList.add('hidden');
+            document.getElementById('r2-progress').innerText = `${currentQuestion + 1}/${round2Data.length}`;
+            startTimer(R2_TIME, document.getElementById('r2-timer'), () => handleR2Timeout());
+        }
+
+        function handleR2Timeout() {
+            showToast('r2-toast', 'Time Out!', false);
+            document.getElementById('screen-r2-play').classList.add('shake');
+            setTimeout(() => {
+                document.getElementById('screen-r2-play').classList.remove('shake');
+                currentQuestion++;
+                loadR2Question();
+            }, 600);
+        }
+
+        function submitR2() {
+            const inputEl = document.getElementById('r2-input');
+            const errorEl = document.getElementById('r2-error-msg');
+            let val = inputEl.value.trim();
+            const q = round2Data[currentQuestion];
+
+            // Manual Validation Checks based on rules
+            let error = null;
+
+            if (val === '') {
+                error = "Caption cannot be empty.";
+            } else if (val !== val.toLowerCase()) {
+                error = "Rule Violation: Must be entirely lowercase.";
+            } else if (val.endsWith('.')) {
+                error = "Rule Violation: No ending period allowed.";
+            } else if (val.includes('gripper')) {
+                error = "Rule Violation: Always say 'hand', never 'gripper'.";
+            } else if (val !== q.target) {
+                error = "Incorrect. Ensure all object and target details match exactly.";
+            }
+
+            if (error) {
+                errorEl.innerText = error;
+                errorEl.classList.remove('hidden');
+                document.getElementById('screen-r2-play').classList.add('shake');
+                setTimeout(() => document.getElementById('screen-r2-play').classList.remove('shake'), 400);
+                // Note: Timer continues running. They must fix it before time runs out!
+            } else {
+                // Success!
+                clearInterval(timerInterval);
+                errorEl.classList.add('hidden');
+                
+                const timeBonus = Math.floor((timeLeft / R2_TIME) * 100);
+                addScore(200 + timeBonus); // Base 200 for R2
+                showToast('r2-toast', `Perfect! +${200 + timeBonus}`, true);
+                
+                currentQuestion++;
+                setTimeout(loadR2Question, 800);
+            }
+        }
+
+        // Allow Enter key to submit in Round 2
+        document.getElementById('r2-input').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                submitR2();
+            }
+        });
+
+        // --- Utilities & Game Over ---
+        function startTimer(duration, element, onComplete) {
+            clearInterval(timerInterval);
+            startTime = Date.now();
+            element.classList.remove('warning');
+            
+            timerInterval = setInterval(() => {
+                const elapsed = Date.now() - startTime;
+                timeLeft = Math.max(0, duration - elapsed);
+                const percentage = (timeLeft / duration) * 100;
+                
+                element.style.width = `${percentage}%`;
+                
+                if (percentage < 25) {
+                    element.classList.add('warning');
+                }
+
+                if (timeLeft <= 0) {
+                    clearInterval(timerInterval);
+                    onComplete();
+                }
+            }, 16); // ~60fps
+        }
+
+        function showToast(id, text, isSuccess) {
+            const toast = document.getElementById(id);
+            toast.innerText = text;
+            toast.className = `feedback-toast show ${isSuccess ? 'bg-green-500' : 'bg-red-500'}`;
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 600);
+        }
+
+        function endGame() {
+            clearInterval(timerInterval);
+            document.getElementById('header').classList.add('hidden');
+            showScreen('screen-game-over');
+            
+            const maxPossible = (round1Data.length * 150) + (round2Data.length * 300); // Approximations with bonuses
+            const pct = score / maxPossible;
+
+            document.getElementById('final-score').innerText = score;
+            
+            const titleEl = document.getElementById('final-title');
+            const iconEl = document.getElementById('final-icon');
+            const feedbackEl = document.getElementById('final-feedback');
+
+            if (pct > 0.8) {
+                titleEl.innerText = "Expert Annotator!";
+                titleEl.className = "text-3xl font-extrabold text-green-600 mb-2";
+                iconEl.innerText = "👑";
+                iconEl.className = "w-24 h-24 rounded-full flex items-center justify-center mb-4 text-5xl bg-green-100";
+                feedbackEl.innerText = "Excellent work! You have a solid grasp of L3 boundary rules and strict formatting guidelines.";
+            } else if (pct > 0.5) {
+                titleEl.innerText = "Solid Effort!";
+                titleEl.className = "text-3xl font-extrabold text-blue-600 mb-2";
+                iconEl.innerText = "👍";
+                iconEl.className = "w-24 h-24 rounded-full flex items-center justify-center mb-4 text-5xl bg-blue-100";
+                feedbackEl.innerText = "Good job, but watch out for those tricky formatting rules (lowercase, no periods) and speed!";
+            } else {
+                titleEl.innerText = "Needs Practice";
+                titleEl.className = "text-3xl font-extrabold text-red-600 mb-2";
+                iconEl.innerText = "📚";
+                iconEl.className = "w-24 h-24 rounded-full flex items-center justify-center mb-4 text-5xl bg-red-100";
+                feedbackEl.innerText = "Review the ESI Caption guidelines. Remember: 'hand' not 'gripper', strict lowercase, and reaching counts as an action.";
+            }
+        }
+
+        function resetGame() {
+            score = 0;
+            currentQuestion = 0;
+            showScreen('screen-start');
+        }
+    </script>
+</body>
+</html>
