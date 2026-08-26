@@ -4,12 +4,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ESI Caption Quality Inspector</title>
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <!-- SheetJS for native Excel (.xlsx) generation with summary sheets -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <!-- Inter Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    
     <style>
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #f3f4f6; /* Tailwind gray-100 */
+            background-color: #f3f4f6;
             overflow-x: hidden;
         }
 
@@ -58,13 +63,13 @@
 
         .timer-fill {
             height: 100%;
-            background-color: #8b5cf6; /* Purple for ESI theme */
+            background-color: #8b5cf6; 
             width: 100%;
             transition: width 0.1s linear, background-color 0.3s;
         }
         
         .timer-fill.warning {
-            background-color: #ef4444; /* Red when time is low */
+            background-color: #ef4444; 
         }
 
         .feedback-toast {
@@ -79,6 +84,7 @@
             opacity: 0;
             transition: opacity 0.3s, top 0.3s;
             pointer-events: none;
+            z-index: 50;
         }
 
         .feedback-toast.show {
@@ -89,12 +95,44 @@
         .bg-esi-purple { background-color: #6d28d9; }
         .text-esi-purple { color: #6d28d9; }
         .border-esi-purple { border-color: #6d28d9; }
+        
+        .input-field {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border: 2px solid #e5e7eb;
+            border-radius: 0.75rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .input-field:focus {
+            border-color: #6d28d9;
+        }
+
+        /* Custom Scrollbar for Modal Code */
+        pre::-webkit-scrollbar {
+            height: 6px;
+            width: 6px;
+        }
+        pre::-webkit-scrollbar-thumb {
+            background: #4b5563;
+            border-radius: 4px;
+        }
     </style>
 </head>
 <body>
 
-    <div class="game-container">
-        <div class="relative bg-white rounded-2xl shadow-xl w-full max-w-md p-6 sm:p-8 flex flex-col relative">
+    <div class="game-container relative">
+        <!-- Admin Settings Button (Bottom Left) -->
+        <button onclick="checkAdminAccess()" class="absolute bottom-4 left-4 p-3 bg-white hover:bg-gray-100 text-gray-600 rounded-full shadow-md transition border border-gray-200 flex items-center gap-2 text-xs font-semibold" title="Apps Script & Excel Admin Setup">
+            <svg class="w-5 h-5 text-esi-purple" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+            </svg>
+            <span>Apps Script / Excel</span>
+        </button>
+
+        <!-- Main Card UI -->
+        <div class="relative bg-white rounded-2xl shadow-xl w-full max-w-md p-6 sm:p-8 flex flex-col">
             
             <!-- Global Header (Score) -->
             <div id="header" class="hidden flex justify-between items-center mb-6 pb-4 border-b-2 border-gray-100">
@@ -102,28 +140,41 @@
                 <div class="font-black text-2xl text-esi-purple">Score: <span id="score">0</span></div>
             </div>
 
-            <!-- Start Screen -->
+            <!-- Start Screen with Registration -->
             <div id="screen-start" class="screen active flex-col text-center">
                 <div class="w-20 h-20 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
                     <svg class="w-10 h-10 text-esi-purple" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg>
                 </div>
                 <h1 class="text-3xl font-extrabold text-gray-900 mb-2">Caption Quality Inspector</h1>
-                <p class="text-gray-600 mb-8">Test your skills in ESI Caption Labeling. Can you spot the errors and label actions correctly before time runs out?</p>
-                <button onclick="startGame()" class="bg-esi-purple hover:bg-purple-800 text-white font-bold py-3 px-6 rounded-xl transition transform hover:scale-105 active:scale-95 shadow-lg w-full">
-                    Start Assessment
+                <p class="text-gray-600 mb-6 text-sm">Test your ESI Caption Labeling accuracy. Spot errors, verify rules, and submit answers before time runs out.</p>
+                
+                <div class="space-y-4 mb-6 text-left">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1 ml-1">Full Name</label>
+                        <input type="text" id="reg-name" class="input-field" placeholder="Jane Doe" required>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1 ml-1">Email Address</label>
+                        <input type="email" id="reg-email" class="input-field" placeholder="jane@example.com" required>
+                    </div>
+                    <div id="reg-error" class="text-red-500 text-xs font-bold hidden text-center">Please enter both your name and email.</div>
+                </div>
+
+                <button onclick="validateAndStart()" class="bg-esi-purple hover:bg-purple-800 text-white font-bold py-3 px-6 rounded-xl transition transform hover:scale-105 active:scale-95 shadow-lg w-full flex justify-center items-center">
+                    <span>Start Assessment</span>
                 </button>
             </div>
 
             <!-- Round 1 Intro -->
             <div id="screen-r1-intro" class="screen flex-col">
                 <h2 class="text-2xl font-bold text-gray-800 mb-4 border-b-4 border-purple-200 inline-block pb-1">Round 1: The Sorter</h2>
-                <p class="text-gray-600 mb-4 font-semibold">Rule check:</p>
+                <p class="text-gray-600 mb-4 font-semibold">Rule Check:</p>
                 <ul class="text-sm text-gray-600 space-y-2 mb-8 list-disc pl-5">
-                    <li><span class="font-bold text-gray-800">Action:</span> Hand-object interactions. Includes reaching for a pick and retracting after a place.</li>
-                    <li><span class="font-bold text-gray-800">Idle:</span> Waiting, pausing, or no productive movement.</li>
+                    <li><span class="font-bold text-gray-800">Action:</span> Hand-object interactions (including reaching & retracting).</li>
+                    <li><span class="font-bold text-gray-800">Idle:</span> Waiting, pausing, or non-productive movement.</li>
                 </ul>
-                <p class="text-sm text-purple-600 font-bold mb-6 text-center animate-pulse">You have 20 seconds per scenario!</p>
-                <button onclick="startRound1()" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-xl transition transform hover:scale-105 active:scale-95 shadow-lg w-full">
+                <p class="text-sm text-purple-600 font-bold mb-6 text-center animate-pulse">⚡ 20 seconds per scenario!</p>
+                <button onclick="startRound1()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl transition transform hover:scale-105 active:scale-95 shadow-lg w-full">
                     Begin Round 1
                 </button>
             </div>
@@ -153,12 +204,12 @@
                 <h2 class="text-2xl font-bold text-gray-800 mb-4 border-b-4 border-purple-200 inline-block pb-1">Round 2: The Editor</h2>
                 <p class="text-gray-600 mb-4 font-semibold">Formatting Rules:</p>
                 <ul class="text-sm text-gray-600 space-y-2 mb-8 list-disc pl-5">
-                    <li>All lowercase.</li>
-                    <li>No ending periods.</li>
-                    <li>Always say <span class="font-bold text-green-600">"hand"</span>, never <span class="font-bold text-red-500 line-through">"gripper"</span>.</li>
+                    <li>Strictly <span class="font-bold text-gray-800">lowercase</span>.</li>
+                    <li>No <span class="font-bold text-gray-800">ending period</span>.</li>
+                    <li>Use <span class="font-bold text-green-600">"hand"</span>, never <span class="font-bold text-red-500 line-through">"gripper"</span>.</li>
                 </ul>
-                <p class="text-sm text-purple-600 font-bold mb-6 text-center animate-pulse">You have 40 seconds to fix each caption!</p>
-                <button onclick="startRound2()" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-xl transition transform hover:scale-105 active:scale-95 shadow-lg w-full">
+                <p class="text-sm text-purple-600 font-bold mb-6 text-center animate-pulse">⏱️ 40 seconds per caption correction!</p>
+                <button onclick="startRound2()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl transition transform hover:scale-105 active:scale-95 shadow-lg w-full">
                     Begin Round 2
                 </button>
             </div>
@@ -176,8 +227,8 @@
 
                 <div class="mb-6 flex-grow">
                     <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Your Correction:</label>
-                    <textarea id="r2-input" class="w-full bg-white border-2 border-gray-300 rounded-xl p-3 focus:outline-none focus:border-esi-purple focus:ring-1 focus:ring-esi-purple resize-none h-24 font-mono text-sm" placeholder="Type the corrected caption here..."></textarea>
-                    <div id="r2-error-msg" class="text-red-500 text-xs font-bold mt-2 hidden">Error message here</div>
+                    <textarea id="r2-input" class="w-full bg-white border-2 border-gray-300 rounded-xl p-3 focus:outline-none focus:border-esi-purple focus:ring-1 focus:ring-esi-purple resize-none h-24 font-mono text-sm" placeholder="Type corrected caption here..."></textarea>
+                    <div id="r2-error-msg" class="text-red-500 text-xs font-bold mt-2 hidden">Error message</div>
                 </div>
 
                 <button onclick="submitR2()" class="bg-esi-purple hover:bg-purple-800 text-white font-bold py-4 rounded-xl transition transform active:scale-95 w-full text-lg mt-auto shadow-md">
@@ -191,33 +242,187 @@
                     🏆
                 </div>
                 <h1 id="final-title" class="text-3xl font-extrabold text-gray-900 mb-2">Assessment Complete!</h1>
-                <p class="text-gray-600 mb-6 font-medium">Your Final Score</p>
+                <p class="text-gray-600 mb-4 font-medium">Your Final Score</p>
                 
-                <div class="text-5xl font-black text-esi-purple mb-8 drop-shadow-md" id="final-score">0</div>
+                <div class="text-5xl font-black text-esi-purple mb-3 drop-shadow-md" id="final-score">0</div>
+                <div id="appscript-status" class="text-xs font-bold text-gray-500 mb-6 bg-gray-100 py-1.5 px-4 rounded-full inline-block">
+                    Syncing with Google Sheets / Apps Script...
+                </div>
                 
-                <div id="final-feedback" class="text-sm text-gray-600 mb-8 max-w-xs mx-auto bg-gray-50 p-4 rounded-lg border border-gray-200">
+                <div id="final-feedback" class="text-sm text-gray-600 mb-6 max-w-xs mx-auto bg-gray-50 p-4 rounded-lg border border-gray-200">
                     Feedback text goes here.
                 </div>
 
-                <button onclick="resetGame()" class="bg-gray-800 hover:bg-gray-900 text-white font-bold py-3 px-8 rounded-xl transition transform hover:scale-105 active:scale-95 shadow-lg w-full">
-                    Play Again
-                </button>
+                <div class="w-full">
+                    <button onclick="resetGame()" class="bg-gray-800 hover:bg-gray-900 text-white font-bold py-3 px-6 rounded-xl transition transform hover:scale-105 active:scale-95 shadow-md w-full text-sm">
+                        Play Again
+                    </button>
+                </div>
             </div>
 
         </div>
     </div>
 
+    <!-- Admin Password Protection Modal -->
+    <div id="password-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl flex flex-col text-center">
+            <div class="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-3 text-esi-purple">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                </svg>
+            </div>
+            <h3 class="text-lg font-bold text-gray-900 mb-1">Admin Access Required</h3>
+            <p class="text-xs text-gray-500 mb-4">Please enter the administrator password to access setup and reports.</p>
+            
+            <form onsubmit="handlePasswordSubmit(event)" class="space-y-3">
+                <div>
+                    <input type="password" id="admin-pass-input" class="input-field text-center tracking-widest text-lg" placeholder="••••••••" required>
+                    <div id="pass-error-msg" class="text-red-500 text-xs font-bold mt-2 hidden">Incorrect password. Please try again.</div>
+                </div>
+                
+                <div class="flex gap-2">
+                    <button type="button" onclick="togglePasswordModal(false)" class="w-1/2 py-2.5 px-4 border border-gray-300 hover:bg-gray-100 text-gray-700 font-bold rounded-xl text-xs transition">
+                        Cancel
+                    </button>
+                    <button type="submit" class="w-1/2 py-2.5 px-4 bg-esi-purple hover:bg-purple-800 text-white font-bold rounded-xl text-xs transition shadow-md">
+                        Unlock
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Admin Settings & Apps Script Modal -->
+    <div id="admin-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto shadow-2xl flex flex-col">
+            <div class="flex justify-between items-center mb-4 border-b pb-3">
+                <h3 class="text-lg font-bold text-gray-900 flex items-center gap-2">
+                    <span>📊</span> Backend & Apps Script Settings
+                </h3>
+                <button onclick="toggleAdminModal(false)" class="text-gray-400 hover:text-gray-600 text-xl font-bold">&times;</button>
+            </div>
+
+            <!-- Apps Script Web App URL Input -->
+            <div class="mb-5">
+                <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Google Apps Script Web App URL</label>
+                <input type="url" id="appscript-url-input" class="input-field text-xs font-mono" placeholder="https://script.google.com/macros/s/.../exec">
+                <p class="text-[11px] text-gray-500 mt-1">Paste your Google Apps Script Web App endpoint here to automatically push all participant submissions to Google Sheets.</p>
+            </div>
+
+            <!-- Direct Excel Export Button -->
+            <div class="mb-6 p-4 bg-purple-50 border border-purple-100 rounded-xl">
+                <h4 class="font-bold text-sm text-esi-purple mb-1">Excel (.xlsx) Generator</h4>
+                <p class="text-xs text-gray-600 mb-3">Download complete submission records and itemized answer tallies directly in Excel format.</p>
+                <button onclick="exportToExcel()" class="bg-esi-purple hover:bg-purple-800 text-white font-bold py-2 px-4 rounded-lg text-xs transition flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                    Export All Results to Excel (.xlsx)
+                </button>
+            </div>
+
+            <!-- Apps Script Setup Instructions & Code -->
+            <div class="mb-4">
+                <div class="flex justify-between items-center mb-1">
+                    <label class="block text-xs font-bold text-gray-700 uppercase">Google Apps Script Code Snippet</label>
+                    <button onclick="copyAppsScriptCode()" id="copy-code-btn" class="text-xs text-esi-purple font-bold hover:underline">Copy Code</button>
+                </div>
+                <pre class="bg-gray-900 text-gray-100 p-3 rounded-xl text-[11px] font-mono overflow-x-auto h-44 leading-relaxed"><code id="appscript-code-block">
+function doPost(e) {
+  try {
+    var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+    var data = JSON.parse(e.postData.contents);
+    
+    // Create Header if sheet is empty
+    if (sheet.getLastRow() === 0) {
+      sheet.appendRow([
+        "Timestamp", "Name", "Email", "Total Score",
+        "R1_Q1 (Hover)", "R1_Q2 (Reach)", "R1_Q3 (Pause)", "R1_Q4 (Move)", "R1_Q5 (Retract)",
+        "R2_Q1 Status", "R2_Q1 Mistakes",
+        "R2_Q2 Status", "R2_Q2 Mistakes",
+        "R2_Q3 Status", "R2_Q3 Mistakes",
+        "R2_Q4 Status", "R2_Q4 Mistakes"
+      ]);
+      sheet.getRange(1, 1, 1, 17).setFontWeight("bold").setBackground("#6d28d9").setFontColor("#ffffff");
+    }
+    
+    sheet.appendRow([
+      data.timestamp,
+      data.name,
+      data.email,
+      data.score,
+      data.r1Answers[0] || "N/A",
+      data.r1Answers[1] || "N/A",
+      data.r1Answers[2] || "N/A",
+      data.r1Answers[3] || "N/A",
+      data.r1Answers[4] || "N/A",
+      data.r2Answers[0] ? data.r2Answers[0].status : "N/A",
+      data.r2Answers[0] ? data.r2Answers[0].mistakes : 0,
+      data.r2Answers[1] ? data.r2Answers[1].status : "N/A",
+      data.r2Answers[1] ? data.r2Answers[1].mistakes : 0,
+      data.r2Answers[2] ? data.r2Answers[2].status : "N/A",
+      data.r2Answers[2] ? data.r2Answers[2].mistakes : 0,
+      data.r2Answers[3] ? data.r2Answers[3].status : "N/A",
+      data.r2Answers[3] ? data.r2Answers[3].mistakes : 0
+    ]);
+    
+    return ContentService.createTextOutput(JSON.stringify({"result": "success"}))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({"result": "error", "error": err.toString()}))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+                </code></pre>
+            </div>
+
+            <div class="text-[11px] text-gray-500 space-y-1 bg-gray-50 p-3 rounded-lg border">
+                <p class="font-bold text-gray-700">How to deploy in Google Sheets:</p>
+                <ol class="list-decimal pl-4 space-y-0.5">
+                    <li>Open Google Sheet &rarr; Extensions &rarr; Apps Script.</li>
+                    <li>Paste the code above and save.</li>
+                    <li>Click <strong>Deploy &rarr; New Deployment</strong>.</li>
+                    <li>Select Type: <strong>Web app</strong>.</li>
+                    <li>Execute as: <strong>Me</strong> | Who has access: <strong>Anyone</strong>.</li>
+                    <li>Copy Web App URL and paste it into the field above!</li>
+                </ol>
+            </div>
+
+            <div class="mt-4 flex justify-end gap-2">
+                <button onclick="saveAdminSettings()" class="bg-esi-purple hover:bg-purple-800 text-white font-bold py-2 px-5 rounded-xl text-xs transition">
+                    Save Settings
+                </button>
+            </div>
+        </div>
+    </div>
+
     <script>
-        // Game State
+        // Game Configuration & State
         let score = 0;
         let currentQuestion = 0;
         let timerInterval;
         let timeLeft = 0;
-        const R1_TIME = 5000; // 20 seconds per question
-        const R2_TIME = 15000; // 40 seconds per question
+        const R1_TIME = 20000;
+        const R2_TIME = 40000;
         let startTime = 0;
 
-        // Data for Round 1 (Action vs Idle)
+        // Apps Script Web App URL from localStorage
+        let appScriptUrl = localStorage.getItem('esi_appscript_url') || '';
+        let isAdminAuthenticated = false;
+        const ADMIN_PASSWORD = "Ninjas2026";
+
+        // Local storage list of completed sessions for compiling Excel reports
+        let allSessions = JSON.parse(localStorage.getItem('esi_sessions') || '[]');
+
+        let currentSession = {
+            name: "",
+            email: "",
+            score: 0,
+            r1Answers: [],
+            r2Answers: [],
+            timestamp: ""
+        };
+        let currentR2Mistakes = 0;
+
+        // Scenarios
         const round1Data = [
             { text: "Hand is hovering stationary above the table for 2 seconds", answer: "idle" },
             { text: "Hand is reaching out towards the blue wooden block", answer: "action" },
@@ -226,31 +431,113 @@
             { text: "Retracting the empty hand after placing the plate down", answer: "action" }
         ];
 
-        // Data for Round 2 (Syntax Editing)
         const round2Data = [
-            { 
-                original: "Pick up the red mug with the right gripper.", 
-                target: "pick up the red mug with the right hand",
-                hints: ["lowercase only", "no period", "use 'hand' not 'gripper'"]
-            },
-            { 
-                original: "pour water into the cup.", 
-                target: "pour water into the cup",
-                hints: ["lowercase only", "no period"]
-            },
-            { 
-                original: "Place the Apple on the table", 
-                target: "place the apple on the table",
-                hints: ["lowercase only"]
-            },
-            { 
-                original: "open the drawer with the left gripper", 
-                target: "open the drawer with the left hand",
-                hints: ["use 'hand' not 'gripper'"]
-            }
+            { original: "Pick up the red mug with the right gripper.", target: "pick up the red mug with the right hand" },
+            { original: "pour water into the cup.", target: "pour water into the cup" },
+            { original: "Place the Apple on the table", target: "place the apple on the table" },
+            { original: "open the drawer with the left gripper", target: "open the drawer with the left hand" }
         ];
 
-        // Utility: Screen Management
+        // Initialize UI Elements
+        document.addEventListener('DOMContentLoaded', () => {
+            if (appScriptUrl) {
+                document.getElementById('appscript-url-input').value = appScriptUrl;
+            }
+        });
+
+        function checkAdminAccess() {
+            if (isAdminAuthenticated) {
+                toggleAdminModal(true);
+            } else {
+                togglePasswordModal(true);
+            }
+        }
+
+        function togglePasswordModal(show) {
+            const modal = document.getElementById('password-modal');
+            const passInput = document.getElementById('admin-pass-input');
+            const errorMsg = document.getElementById('pass-error-msg');
+            
+            if (show) {
+                passInput.value = '';
+                errorMsg.classList.add('hidden');
+                modal.classList.remove('hidden');
+                setTimeout(() => passInput.focus(), 100);
+            } else {
+                modal.classList.add('hidden');
+            }
+        }
+
+        function handlePasswordSubmit(e) {
+            e.preventDefault();
+            const passInput = document.getElementById('admin-pass-input');
+            const errorMsg = document.getElementById('pass-error-msg');
+            const modalCard = document.querySelector('#password-modal > div');
+
+            if (passInput.value === ADMIN_PASSWORD) {
+                isAdminAuthenticated = true;
+                togglePasswordModal(false);
+                toggleAdminModal(true);
+            } else {
+                errorMsg.classList.remove('hidden');
+                modalCard.classList.add('shake');
+                setTimeout(() => modalCard.classList.remove('shake'), 400);
+            }
+        }
+
+        function toggleAdminModal(show) {
+            const modal = document.getElementById('admin-modal');
+            if (show) modal.classList.remove('hidden');
+            else modal.classList.add('hidden');
+        }
+
+        function saveAdminSettings() {
+            const urlInput = document.getElementById('appscript-url-input').value.trim();
+            appScriptUrl = urlInput;
+            localStorage.setItem('esi_appscript_url', appScriptUrl);
+            toggleAdminModal(false);
+            showToast('r1-toast', 'Settings Saved!', true);
+        }
+
+        function copyAppsScriptCode() {
+            const codeText = document.getElementById('appscript-code-block').innerText;
+            const btn = document.getElementById('copy-code-btn');
+            
+            // Clipboard copy fallbacks
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(codeText);
+            } else {
+                const textArea = document.createElement("textarea");
+                textArea.value = codeText;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+            }
+
+            btn.innerText = "Copied!";
+            setTimeout(() => { btn.innerText = "Copy Code"; }, 2000);
+        }
+
+        function validateAndStart() {
+            const nameEl = document.getElementById('reg-name');
+            const emailEl = document.getElementById('reg-email');
+            const errorEl = document.getElementById('reg-error');
+
+            if (nameEl.value.trim() === '' || emailEl.value.trim() === '') {
+                errorEl.classList.remove('hidden');
+                return;
+            }
+
+            errorEl.classList.add('hidden');
+            currentSession.name = nameEl.value.trim();
+            currentSession.email = emailEl.value.trim();
+            currentSession.r1Answers = [];
+            currentSession.r2Answers = [];
+            
+            showScreen('screen-r1-intro');
+        }
+
         function showScreen(screenId) {
             document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
             document.getElementById(screenId).classList.add('active');
@@ -274,10 +561,6 @@
         }
 
         // --- Round 1 Logic ---
-        function startGame() {
-            showScreen('screen-r1-intro');
-        }
-
         function startRound1() {
             currentQuestion = 0;
             updateHeader('Round 1: Sorter');
@@ -301,23 +584,28 @@
             const q = round1Data[currentQuestion];
             const isCorrect = (guess === q.answer);
             
-            showToast('r1-toast', isCorrect ? '+100' : 'Miss!', isCorrect);
+            if (guess === 'timeout') {
+                currentSession.r1Answers.push('timeout');
+            } else {
+                currentSession.r1Answers.push(isCorrect ? 'correct' : 'incorrect');
+            }
+            
+            showToast('r1-toast', isCorrect ? '+1' : 'Miss!', isCorrect);
             
             if (isCorrect) {
-                const timeBonus = Math.floor((timeLeft / R1_TIME) * 50); // Up to 50 bonus points for speed
-                addScore(100 + timeBonus);
+                addScore(1);
             } else {
                 document.getElementById('screen-r1-play').classList.add('shake');
                 setTimeout(() => document.getElementById('screen-r1-play').classList.remove('shake'), 400);
             }
 
             currentQuestion++;
-            setTimeout(loadR1Question, 600); // Brief pause before next
+            setTimeout(loadR1Question, 600);
         }
 
         function endRound1() {
             showScreen('screen-r2-intro');
-            document.getElementById('header').classList.add('hidden'); // Hide temporarily
+            document.getElementById('header').classList.add('hidden');
         }
 
         // --- Round 2 Logic ---
@@ -333,6 +621,7 @@
                 endGame();
                 return;
             }
+            currentR2Mistakes = 0;
             const q = round2Data[currentQuestion];
             document.getElementById('r2-flawed-text').innerText = `"${q.original}"`;
             const input = document.getElementById('r2-input');
@@ -345,6 +634,7 @@
 
         function handleR2Timeout() {
             showToast('r2-toast', 'Time Out!', false);
+            currentSession.r2Answers.push({ status: 'timeout', mistakes: currentR2Mistakes });
             document.getElementById('screen-r2-play').classList.add('shake');
             setTimeout(() => {
                 document.getElementById('screen-r2-play').classList.remove('shake');
@@ -359,9 +649,7 @@
             let val = inputEl.value.trim();
             const q = round2Data[currentQuestion];
 
-            // Manual Validation Checks based on rules
             let error = null;
-
             if (val === '') {
                 error = "Caption cannot be empty.";
             } else if (val !== val.toLowerCase()) {
@@ -371,30 +659,29 @@
             } else if (val.includes('gripper')) {
                 error = "Rule Violation: Always say 'hand', never 'gripper'.";
             } else if (val !== q.target) {
-                error = "Incorrect. Ensure all object and target details match exactly.";
+                error = "Incorrect. Ensure all object details match exactly.";
             }
 
             if (error) {
+                currentR2Mistakes++;
                 errorEl.innerText = error;
                 errorEl.classList.remove('hidden');
                 document.getElementById('screen-r2-play').classList.add('shake');
                 setTimeout(() => document.getElementById('screen-r2-play').classList.remove('shake'), 400);
-                // Note: Timer continues running. They must fix it before time runs out!
             } else {
-                // Success!
                 clearInterval(timerInterval);
                 errorEl.classList.add('hidden');
                 
-                const timeBonus = Math.floor((timeLeft / R2_TIME) * 100);
-                addScore(200 + timeBonus); // Base 200 for R2
-                showToast('r2-toast', `Perfect! +${200 + timeBonus}`, true);
+                currentSession.r2Answers.push({ status: 'completed', mistakes: currentR2Mistakes });
+                
+                addScore(5); 
+                showToast('r2-toast', 'Perfect! +5', true);
                 
                 currentQuestion++;
                 setTimeout(loadR2Question, 800);
             }
         }
 
-        // Allow Enter key to submit in Round 2
         document.getElementById('r2-input').addEventListener('keydown', function(e) {
             if (e.key === 'Enter') {
                 e.preventDefault();
@@ -402,7 +689,6 @@
             }
         });
 
-        // --- Utilities & Game Over ---
         function startTimer(duration, element, onComplete) {
             clearInterval(timerInterval);
             startTime = Date.now();
@@ -423,7 +709,7 @@
                     clearInterval(timerInterval);
                     onComplete();
                 }
-            }, 16); // ~60fps
+            }, 16);
         }
 
         function showToast(id, text, isSuccess) {
@@ -435,12 +721,19 @@
             }, 600);
         }
 
-        function endGame() {
+        async function endGame() {
             clearInterval(timerInterval);
             document.getElementById('header').classList.add('hidden');
             showScreen('screen-game-over');
             
-            const maxPossible = (round1Data.length * 150) + (round2Data.length * 300); // Approximations with bonuses
+            currentSession.score = score;
+            currentSession.timestamp = new Date().toISOString();
+
+            // Save to browser sessions
+            allSessions.push(JSON.parse(JSON.stringify(currentSession)));
+            localStorage.setItem('esi_sessions', JSON.stringify(allSessions));
+
+            const maxPossible = (round1Data.length * 1) + (round2Data.length * 5);
             const pct = score / maxPossible;
 
             document.getElementById('final-score').innerText = score;
@@ -448,31 +741,170 @@
             const titleEl = document.getElementById('final-title');
             const iconEl = document.getElementById('final-icon');
             const feedbackEl = document.getElementById('final-feedback');
+            const statusEl = document.getElementById('appscript-status');
 
             if (pct > 0.8) {
                 titleEl.innerText = "Expert Annotator!";
                 titleEl.className = "text-3xl font-extrabold text-green-600 mb-2";
                 iconEl.innerText = "👑";
                 iconEl.className = "w-24 h-24 rounded-full flex items-center justify-center mb-4 text-5xl bg-green-100";
-                feedbackEl.innerText = "Excellent work! You have a solid grasp of L3 boundary rules and strict formatting guidelines.";
+                feedbackEl.innerText = "Excellent work! You have a solid grasp of L3 boundary rules and strict ESI caption guidelines.";
             } else if (pct > 0.5) {
                 titleEl.innerText = "Solid Effort!";
                 titleEl.className = "text-3xl font-extrabold text-blue-600 mb-2";
                 iconEl.innerText = "👍";
                 iconEl.className = "w-24 h-24 rounded-full flex items-center justify-center mb-4 text-5xl bg-blue-100";
-                feedbackEl.innerText = "Good job, but watch out for those tricky formatting rules (lowercase, no periods) and speed!";
+                feedbackEl.innerText = "Good job! Watch out for lowercase formatting, no ending periods, and timing!";
             } else {
                 titleEl.innerText = "Needs Practice";
                 titleEl.className = "text-3xl font-extrabold text-red-600 mb-2";
                 iconEl.innerText = "📚";
                 iconEl.className = "w-24 h-24 rounded-full flex items-center justify-center mb-4 text-5xl bg-red-100";
-                feedbackEl.innerText = "Review the ESI Caption guidelines. Remember: 'hand' not 'gripper', strict lowercase, and reaching counts as an action.";
+                feedbackEl.innerText = "Review the ESI guidelines. Always use 'hand' instead of 'gripper' and keep captions lowercase.";
             }
+
+            // --- Post to Google Apps Script Web App ---
+            if (appScriptUrl) {
+                statusEl.innerText = "Syncing with Google Sheets...";
+                statusEl.className = "text-xs font-bold text-blue-600 mb-6 bg-blue-50 py-1.5 px-4 rounded-full inline-block animate-pulse";
+                try {
+                    // Send JSON payload to Apps Script endpoint
+                    await fetch(appScriptUrl, {
+                        method: 'POST',
+                        mode: 'no-cors', // Standard mode for Apps Script web endpoints
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(currentSession)
+                    });
+                    statusEl.innerText = "✓ Synced with Google Sheets!";
+                    statusEl.className = "text-xs font-bold text-green-600 mb-6 bg-green-50 py-1.5 px-4 rounded-full inline-block";
+                } catch (e) {
+                    console.error("Apps Script Error:", e);
+                    statusEl.innerText = "Failed to sync with Apps Script URL.";
+                    statusEl.className = "text-xs font-bold text-red-500 mb-6 bg-red-50 py-1.5 px-4 rounded-full inline-block";
+                }
+            } else {
+                statusEl.innerText = "Apps Script URL not configured (Local Mode)";
+                statusEl.className = "text-xs font-bold text-gray-500 mb-6 bg-gray-100 py-1.5 px-4 rounded-full inline-block";
+            }
+        }
+
+        // --- Export to Excel with Multi-sheet Item Tallies ---
+        function exportToExcel() {
+            if (typeof XLSX === 'undefined') {
+                alert("Excel library is loading, please try again in 2 seconds.");
+                return;
+            }
+
+            const sessionsToExport = allSessions.length > 0 ? allSessions : [currentSession];
+
+            // 1. Sheet 1: Individual Submissions Data
+            const submissionsData = sessionsToExport.map(s => {
+                const row = {
+                    "Date & Time": new Date(s.timestamp || Date.now()).toLocaleString(),
+                    "Name": s.name,
+                    "Email": s.email,
+                    "Total Score": s.score
+                };
+
+                // Round 1 items
+                round1Data.forEach((item, idx) => {
+                    row[`R1_Q${idx + 1} (${item.answer.toUpperCase()})`] = s.r1Answers[idx] || "N/A";
+                });
+
+                // Round 2 items
+                round2Data.forEach((item, idx) => {
+                    const ans = s.r2Answers[idx] || { status: 'N/A', mistakes: 0 };
+                    row[`R2_Q${idx + 1} Status`] = ans.status;
+                    row[`R2_Q${idx + 1} Mistakes`] = ans.mistakes;
+                });
+
+                return row;
+            });
+
+            // 2. Sheet 2: Item-by-Item Answer Tallies & Analytics
+            const tallyData = [];
+
+            // Tally Round 1
+            round1Data.forEach((item, idx) => {
+                let correctCount = 0;
+                let incorrectCount = 0;
+                let timeoutCount = 0;
+
+                sessionsToExport.forEach(s => {
+                    const res = s.r1Answers[idx];
+                    if (res === 'correct') correctCount++;
+                    else if (res === 'incorrect') incorrectCount++;
+                    else if (res === 'timeout') timeoutCount++;
+                });
+
+                const total = sessionsToExport.length;
+                const accuracyPct = total > 0 ? Math.round((correctCount / total) * 100) + "%" : "0%";
+
+                tallyData.push({
+                    "Round": "Round 1 (Sorter)",
+                    "Item #": `Q${idx + 1}`,
+                    "Prompt / Flawed Text": item.text,
+                    "Target Answer": item.answer.toUpperCase(),
+                    "Total Submissions": total,
+                    "Correct Count": correctCount,
+                    "Incorrect Count": incorrectCount,
+                    "Timeout Count": timeoutCount,
+                    "Accuracy %": accuracyPct,
+                    "Avg Mistakes": "N/A"
+                });
+            });
+
+            // Tally Round 2
+            round2Data.forEach((item, idx) => {
+                let completedCount = 0;
+                let timeoutCount = 0;
+                let totalMistakes = 0;
+
+                sessionsToExport.forEach(s => {
+                    const res = s.r2Answers[idx];
+                    if (res) {
+                        if (res.status === 'completed') completedCount++;
+                        if (res.status === 'timeout') timeoutCount++;
+                        totalMistakes += (res.mistakes || 0);
+                    }
+                });
+
+                const total = sessionsToExport.length;
+                const successPct = total > 0 ? Math.round((completedCount / total) * 100) + "%" : "0%";
+                const avgMistakes = total > 0 ? (totalMistakes / total).toFixed(1) : "0";
+
+                tallyData.push({
+                    "Round": "Round 2 (Editor)",
+                    "Item #": `Q${idx + 1}`,
+                    "Prompt / Flawed Text": item.original,
+                    "Target Answer": item.target,
+                    "Total Submissions": total,
+                    "Correct Count": completedCount,
+                    "Incorrect Count": 0, // N/A for R2 since mistakes are recorded directly
+                    "Timeout Count": timeoutCount,
+                    "Accuracy %": successPct,
+                    "Avg Mistakes": avgMistakes
+                });
+            });
+
+            // Generate Excel Workbook with 2 Worksheets
+            const wb = XLSX.utils.book_new();
+
+            const wsSubmissions = XLSX.utils.json_to_sheet(submissionsData);
+            const wsTallies = XLSX.utils.json_to_sheet(tallyData);
+
+            XLSX.utils.book_append_sheet(wb, wsSubmissions, "Participant Results");
+            XLSX.utils.book_append_sheet(wb, wsTallies, "Item Tally Summary");
+
+            // Write File
+            XLSX.writeFile(wb, `ESI_Caption_Quality_Assessment_Results.xlsx`);
         }
 
         function resetGame() {
             score = 0;
             currentQuestion = 0;
+            document.getElementById('reg-name').value = '';
+            document.getElementById('reg-email').value = '';
             showScreen('screen-start');
         }
     </script>
